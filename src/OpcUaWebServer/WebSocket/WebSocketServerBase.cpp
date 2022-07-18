@@ -93,6 +93,7 @@ namespace OpcUaWebServer
 				Log(Error, "web socket channel not exist - ignore send message")
 					.parameter("ChannelId", webSocketMessage->channelId_);
 				sendCompleteCallback(false);
+				return;
 			}
 			webSocketChannel = it->second;
 		}
