@@ -9,7 +9,7 @@ REM Name:		Path
 REM String:		C:\install\usr\lib;C:\local\boost_1_58_0\lib32-msvc-12.0;C:\install\usr\bin
 REM
 
-OpcUaServer3 CONSOLE C:\install\etc\OpcUaStack\OpcUaWebServer\OpcUaServer.xml 
+OpcUaServer4 CONSOLE C:\ASNeG\etc\OpcUaStack\OpcUaWebServer\OpcUaServer.xml 
 
 
 pause

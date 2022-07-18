@@ -100,7 +100,10 @@ include(${OPCUASTACK_INSTALL_PREFIX}/usr/share/cmake/OpcUaStack${OPCUASTACK_VERS
 set (INSTALL_PREFIX "/usr")        
 if (WIN32)
     if (MSVC)
+        add_definitions(/bigobj)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+    else ()
+        add_definitions(-Wa,-mbig-obj)
     endif()
 
     if (CPACK_BINARY_MSI)
