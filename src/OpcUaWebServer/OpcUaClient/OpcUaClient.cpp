@@ -686,13 +686,13 @@ namespace OpcUaWebServer
 	void
 	OpcUaClient::attributeServiceHistoryReadResponse(ServiceTransactionHistoryRead::SPtr serviceTransactionHistoryRead)
 	{
-		std::cout << "attributeServiceHistoryReadResponse" << std::endl;
+	    Log(Error, "OpcUaClient::attributeServiceHistoryReadResponse not implemented");
 	}
 
 	void
 	OpcUaClient::attributeServiceHistoryUpdateResponse(ServiceTransactionHistoryUpdate::SPtr serviceTransactionHistoryUpdate)
 	{
-		std::cout << "attributeServiceHistoryUpdateResponse" << std::endl;
+	    Log(Error, "OpcUaClient::attributeServiceHistoryUpdateResponse not implemented");
 	}
 
 	void
@@ -908,8 +908,10 @@ namespace OpcUaWebServer
 	void
 	OpcUaClient::dataChangeNotification(const MonitoredItemNotification::SPtr& monitoredItem)
 	{
-		std::cout << "Data update ..." << std::endl;
-		assert(monitoredItem.get() == nullptr);
+	    if (monitoredItem.get() == nullptr) {
+	        Log(Error, "OpcUaClient::dataChangeNotification found nullptr for monitoredItem!");
+	        return;
+	    }
 
 		// locate the associated entry
 		auto monitorItem = monitorManager_.getMonitorItem(monitoredItem->clientHandle());
@@ -953,9 +955,7 @@ namespace OpcUaWebServer
 	void
 	OpcUaClient::subscriptionStateUpdate(SubscriptionState subscriptionState, uint32_t subscriptionId)
 	{
-		std::cout << "Subscription update ..." << subscriptionId << " " << subscriptionState << std::endl;
-
-		// deleteSubscription
+	    Log(Error, "OpcUaClient::subscriptionStateUpdate not implemented!");
 	}
 
 	// ------------------------------------------------------------------------

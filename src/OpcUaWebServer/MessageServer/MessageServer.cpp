@@ -154,7 +154,9 @@ namespace OpcUaWebServer
 			return;
 		}
 
-		std::cout << "Output: " << ss.str() << std::endl;
+		Log(Debug, "MessageServer::receiveMessage")
+		    .parameter("ChannelId", message->channelId())
+		    .parameter("Output", ss.str());
 		messageServerIf_->messageServerMessage(message->channelId(), ss.str());
 	}
 

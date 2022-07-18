@@ -138,7 +138,8 @@ namespace OpcUaWebServer
 			prom.set_value(error);
 		};
 		auto receiveMessageCallback = [this](WebSocketMessage::SPtr& webSocketMessage) {
-			std::cout << "WebSocketMessage: " << webSocketMessage->message_ << std::endl;
+		    Log(Debug, "WebSocketServer::ReceiveMessageCallback")
+		            .parameter("Message", webSocketMessage->message_);
 			messageServer_.receiveMessage(webSocketMessage->channelId_, webSocketMessage->message_);
 		};
 		webSocket_.startup(

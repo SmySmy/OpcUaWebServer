@@ -134,9 +134,10 @@ namespace OpcUaWebServer
 	void
 	ClientManager::receiveMessage(WebSocketMessage::SPtr& webSocketMessage)
 	{
-		std::cout << "Command=" << webSocketMessage->command_ << std::endl;
-		std::cout << "ChannelId=" << webSocketMessage->channelId_ << std::endl;
-		std::cout << "ReceivedMessage=" << webSocketMessage->message_ << std::endl;
+	    Log(Debug, "ClientManager::receiveMessage")
+                .parameter("Command", webSocketMessage->command_ )
+                .parameter("ChannelId", webSocketMessage->channelId_)
+	            .parameter("ReceivedMessage", webSocketMessage->message_);
 
 		if (shutdownCallback_) {
 			// we want to shutdown and ignore all packages
