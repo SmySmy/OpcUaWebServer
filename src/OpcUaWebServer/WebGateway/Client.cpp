@@ -264,6 +264,22 @@ namespace OpcUaWebServer
 		const LogoutResponseCallback& logoutResponseCallback
 	)
 	{
+        /*
+         * BUG: ENDLESS LOOP
+         *
+         * Logout wird über die Empfangen Nachricht "CHANNELCLOSE_MESSAGE" aufgerufen.
+         *
+         * Da der Aufruf nicht im richtigen Strand läuft, wird ein Dispatch augerufen.
+         * Daraufhin befindet sich der Logout in einer Endlosschleife, da anscheint
+         * immer der falsche Strand versucht diesen Task zu bearbeiten.
+         *
+         * Sollte man die Strand-Überprüfung auskommentieren, versucht der Client
+         * sich auszuloggen. Dies führt dazu dass der komplette Server freezt.
+         * Es kann nichts mehr gesendet oder empfangen werden. Der Server scheint nicht
+         * mehr zu laufen. Der Server muss nun neugestartet werden.
+         */
+        return;
+
 		// check if the function is called outside the strand
 		if (!strand_->running_in_this_thread()) {
 			auto logoutContext = boost::make_shared<LogoutContext>();
