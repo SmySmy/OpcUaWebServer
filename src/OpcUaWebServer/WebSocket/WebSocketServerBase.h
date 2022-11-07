@@ -21,6 +21,7 @@
 #include "OpcUaWebServer/WebSocket/WebSocketConfig.h"
 #include "OpcUaWebServer/WebSocket/WebSocketChannel.h"
 #include "OpcUaWebServer/WebSocket/WebSocketMessage.h"
+#include "OpcUaWebServer/WebSocket/WebSocketMessageContext.h"
 
 namespace OpcUaWebServer
 {
@@ -103,11 +104,15 @@ namespace OpcUaWebServer
 		//
 		// handle receive message
 		//
-		void receiveMessage(WebSocketChannel* webSocketChannel);
-		void handleReceiveMessageHeader(const boost::system::error_code& error, std::size_t bytes_transfered, WebSocketChannel* webSocketChannel);
-		void handleReceiveMessageLength2(const boost::system::error_code& error, std::size_t bytes_transfered, WebSocketChannel* webSocketChannel);
-		void handleReceiveMessageLength8(const boost::system::error_code& error, std::size_t bytes_transfered, WebSocketChannel* webSocketChannel);
-		void handleReceiveMessageContent(const boost::system::error_code& error, std::size_t bytes_transfered, WebSocketChannel* webSocketChannel);
+		void receiveMessage(WebSocketChannel* webSocketChannel, WebSocketMessageContext::SPtr webSocketMessageContext = nullptr);
+		void handleReceiveMessageHeader(const boost::system::error_code& error, std::size_t bytes_transfered
+		        , WebSocketChannel* webSocketChannel, WebSocketMessageContext::SPtr webSocketMessageContext);
+		void handleReceiveMessageLength2(const boost::system::error_code& error, std::size_t bytes_transfered
+		        , WebSocketChannel* webSocketChannel, WebSocketMessageContext::SPtr webSocketMessageContext);
+		void handleReceiveMessageLength8(const boost::system::error_code& error, std::size_t bytes_transfered
+		        , WebSocketChannel* webSocketChannel, WebSocketMessageContext::SPtr webSocketMessageContext);
+		void handleReceiveMessageContent(const boost::system::error_code& error, std::size_t bytes_transfered,
+		        WebSocketChannel* webSocketChannel, WebSocketMessageContext::SPtr webSocketMessageContext);
 
 		void idleTimeoutWebSocketChannel(WebSocketChannel* webSocketChannel, const std::string& location);
 

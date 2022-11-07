@@ -51,7 +51,7 @@ namespace OpcUaWebServer
 
 		bool timeout_;
 		uint32_t id_;
-		uint8_t opcode_;
+		uint8_t opcode_ { 0x01 }; // OP_TEXT_FRAME
 		boost::asio::streambuf recvBuffer_;
 		boost::asio::streambuf sendBuffer_;
 		WebSocketRequest webSocketRequest_;

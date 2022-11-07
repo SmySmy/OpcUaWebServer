@@ -503,7 +503,9 @@ namespace OpcUaWebServer
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	void
-	WebSocketServerBase::receiveMessage(WebSocketChannel* webSocketChannel)
+	WebSocketServerBase::receiveMessage(
+	        WebSocketChannel* webSocketChannel,
+	        WebSocketMessageContext::SPtr webSocketMessageContext)
 	{
 		// start request timer
 		webSocketChannel->slotTimerElement_->expireFromNow(webSocketConfig_->idleTimeout());
@@ -518,8 +520,8 @@ namespace OpcUaWebServer
 			webSocketConfig_->strand(),
 			webSocketChannel->recvBuffer_,
 			2,
-			[this, webSocketChannel](const boost::system::error_code& error, std::size_t bytes_transfered) {
-				handleReceiveMessageHeader(error, bytes_transfered, webSocketChannel);
+			[this, webSocketChannel, webSocketMessageContext](const boost::system::error_code& error, std::size_t bytes_transfered) {
+				handleReceiveMessageHeader(error, bytes_transfered, webSocketChannel, webSocketMessageContext);
 		    }
 		);
 	}
@@ -528,13 +530,14 @@ namespace OpcUaWebServer
 	WebSocketServerBase::handleReceiveMessageHeader(
 		const boost::system::error_code& error,
 		std::size_t bytes_transfered,
-		WebSocketChannel* webSocketChannel
+		WebSocketChannel* webSocketChannel,
+		WebSocketMessageContext::SPtr webSocketMessageContext
 	)
 	{
 		webSocketChannel->asyncRead_ = false;
 
 		if (webSocketChannel->timeout_ || error || webSocketChannel->shutdown_) {
-			Log(Debug, "WebSocketServer handle receive message header timeout, error or shutdown");
+			Log(Error, "WebSocketServer handle receive message header timeout, error or shutdown");
 			closeWebSocketChannel(webSocketChannel);
 			return;
 		}
@@ -543,7 +546,7 @@ namespace OpcUaWebServer
 		webSocketConfig_->ioThread()->slotTimer()->stop(webSocketChannel->slotTimerElement_);
 
 		if (error) {
-			Log(Debug, "WebSocketServer receive message header error; close channel")
+			Log(Error, "WebSocketServer receive message header error; close channel")
 				.parameter("Address", webSocketChannel->partner_.address().to_string())
 				.parameter("Port", webSocketChannel->partner_.port())
 				.parameter("ChannelId", webSocketChannel->id_);
@@ -561,15 +564,10 @@ namespace OpcUaWebServer
 		bool mask = (headerBytes[1] & 0x80) == 0x80;	// true - mask
 		uint32_t length = headerBytes[1] & 0x7f;
 
-		if (webSocketChannel->opcode_ == OP_CONTINUATION_FRAME) {
-			Log(Debug, "WebSocketServer do not support continuation frame messages; close channel")
-				.parameter("Address", webSocketChannel->partner_.address().to_string())
-				.parameter("Port", webSocketChannel->partner_.port())
-				.parameter("ChannelId", webSocketChannel->id_);
-
-			closeWebSocketChannel(webSocketChannel);
-			return;
+		if (webSocketMessageContext == nullptr) {
+		    webSocketMessageContext = boost::make_shared<WebSocketMessageContext>();
 		}
+		webSocketMessageContext->setHeader(fin, webSocketChannel->opcode_, mask, length);
 
 		if (webSocketChannel->opcode_ == OP_BINARY_FRAME) {
 			Log(Error, "WebSocketServer do not support binary frame messages; close channel")
@@ -582,7 +580,7 @@ namespace OpcUaWebServer
 		}
 
 		if (webSocketChannel->opcode_ == OP_CLOSE_FRAME) {
-			Log(Debug, "WebSocketServer receive close frame messages; close channel")
+			Log(Error, "WebSocketServer receive close frame messages; close channel")
 				.parameter("Address", webSocketChannel->partner_.address().to_string())
 				.parameter("Port", webSocketChannel->partner_.port())
 				.parameter("ChannelId", webSocketChannel->id_);
@@ -591,11 +589,14 @@ namespace OpcUaWebServer
 			return;
 		}
 
-		if (webSocketChannel->opcode_ != OP_TEXT_FRAME && webSocketChannel->opcode_ != OP_PING_FRAME) {
-			Log(Debug, "WebSocketServer do not support continuation text messages; close channel")
+		if (webSocketChannel->opcode_ != OP_TEXT_FRAME &&
+		        webSocketChannel->opcode_ != OP_PING_FRAME &&
+		        webSocketChannel->opcode_ != OP_CONTINUATION_FRAME) {
+			Log(Error, "WebSocketServer do not support opcode; close channel")
 				.parameter("Address", webSocketChannel->partner_.address().to_string())
 				.parameter("Port", webSocketChannel->partner_.port())
-				.parameter("ChannelId", webSocketChannel->id_);
+				.parameter("ChannelId", webSocketChannel->id_)
+				.parameter("OpCode", webSocketChannel->opcode_);
 
 			closeWebSocketChannel(webSocketChannel);
 			return;
@@ -615,8 +616,8 @@ namespace OpcUaWebServer
 				webSocketConfig_->strand(),
 				webSocketChannel->recvBuffer_,
 				length+4,
-				[this, webSocketChannel](const boost::system::error_code& error, std::size_t bytes_transfered) {
-					handleReceiveMessageContent(error, bytes_transfered, webSocketChannel);
+				[this, webSocketChannel, webSocketMessageContext](const boost::system::error_code& error, std::size_t bytes_transfered) {
+					handleReceiveMessageContent(error, bytes_transfered, webSocketChannel, webSocketMessageContext);
 			    }
 			);
 			return;
@@ -636,8 +637,8 @@ namespace OpcUaWebServer
 				webSocketConfig_->strand(),
 				webSocketChannel->recvBuffer_,
 				2,
-				[this, webSocketChannel](const boost::system::error_code& error, std::size_t bytes_transfered) {
-					handleReceiveMessageLength2(error, bytes_transfered, webSocketChannel);
+				[this, webSocketChannel, webSocketMessageContext](const boost::system::error_code& error, std::size_t bytes_transfered) {
+					handleReceiveMessageLength2(error, bytes_transfered, webSocketChannel, webSocketMessageContext);
 				}
 			);
 			return;
@@ -657,8 +658,8 @@ namespace OpcUaWebServer
 				webSocketConfig_->strand(),
 				webSocketChannel->recvBuffer_,
 				8,
-				[this, webSocketChannel](const boost::system::error_code& error, std::size_t bytes_transfered) {
-					handleReceiveMessageLength8(error, bytes_transfered, webSocketChannel);
+				[this, webSocketChannel, webSocketMessageContext](const boost::system::error_code& error, std::size_t bytes_transfered) {
+					handleReceiveMessageLength8(error, bytes_transfered, webSocketChannel, webSocketMessageContext);
 				}
 			);
 			return;
@@ -670,13 +671,14 @@ namespace OpcUaWebServer
 	WebSocketServerBase::handleReceiveMessageLength2(
 		const boost::system::error_code& error,
 		std::size_t bytes_transfered,
-		WebSocketChannel* webSocketChannel
+		WebSocketChannel* webSocketChannel,
+		WebSocketMessageContext::SPtr webSocketMessageContext
 	)
 	{
 		webSocketChannel->asyncRead_ = false;
 
 		if (webSocketChannel->timeout_ || error || webSocketChannel->shutdown_) {
-			Log(Debug, "WebSocketServer handle receive message header length2 timeout, error or shutdown");
+			Log(Error, "WebSocketServer handle receive message header length2 timeout, error or shutdown");
 			closeWebSocketChannel(webSocketChannel);
 			return;
 		}
@@ -685,7 +687,7 @@ namespace OpcUaWebServer
 		webSocketConfig_->ioThread()->slotTimer()->stop(webSocketChannel->slotTimerElement_);
 
 		if (error) {
-			Log(Debug, "WebSocketServer receive message content2 error; close channel")
+			Log(Error, "WebSocketServer receive message content2 error; close channel")
 				.parameter("Address", webSocketChannel->partner_.address().to_string())
 				.parameter("Port", webSocketChannel->partner_.port())
 				.parameter("ChannelId", webSocketChannel->id_);
@@ -715,19 +717,23 @@ namespace OpcUaWebServer
 			webSocketConfig_->strand(),
 			webSocketChannel->recvBuffer_,
 			length+4,
-			[this, webSocketChannel](const boost::system::error_code& error, std::size_t bytes_transfered) {
-				handleReceiveMessageContent(error, bytes_transfered, webSocketChannel);
+			[this, webSocketChannel, webSocketMessageContext](const boost::system::error_code& error, std::size_t bytes_transfered) {
+				handleReceiveMessageContent(error, bytes_transfered, webSocketChannel, webSocketMessageContext);
 			}
 		);
 	}
 
 	void
-	WebSocketServerBase::handleReceiveMessageLength8(const boost::system::error_code& error, std::size_t bytes_transfered, WebSocketChannel* webSocketChannel)
+	WebSocketServerBase::handleReceiveMessageLength8(
+	        const boost::system::error_code& error,
+	        std::size_t bytes_transfered,
+	        WebSocketChannel* webSocketChannel,
+	        WebSocketMessageContext::SPtr webSocketMessageContext)
 	{
 		webSocketChannel->asyncRead_ = false;
 
 		if (webSocketChannel->timeout_ || error || webSocketChannel->shutdown_) {
-			Log(Debug, "WebSocketServer handle receive message header length8 timeout, error or shutdown");
+			Log(Error, "WebSocketServer handle receive message header length8 timeout, error or shutdown");
 			closeWebSocketChannel(webSocketChannel);
 			return;
 		}
@@ -736,7 +742,7 @@ namespace OpcUaWebServer
 		webSocketConfig_->ioThread()->slotTimer()->stop(webSocketChannel->slotTimerElement_);
 
 		if (error) {
-			Log(Debug, "WebSocketServer receive message content2 error; close channel")
+			Log(Error, "WebSocketServer receive message content8 error; close channel")
 				.parameter("Address", webSocketChannel->partner_.address().to_string())
 				.parameter("Port", webSocketChannel->partner_.port())
 				.parameter("ChannelId", webSocketChannel->id_);
@@ -772,19 +778,23 @@ namespace OpcUaWebServer
 			webSocketConfig_->strand(),
 			webSocketChannel->recvBuffer_,
 			length+4,
-			[this, webSocketChannel](const boost::system::error_code& error, std::size_t bytes_transfered) {
-				handleReceiveMessageContent(error, bytes_transfered, webSocketChannel);
+			[this, webSocketChannel, webSocketMessageContext](const boost::system::error_code& error, std::size_t bytes_transfered) {
+				handleReceiveMessageContent(error, bytes_transfered, webSocketChannel, webSocketMessageContext);
 			}
 		);
 	}
 
 	void
-	WebSocketServerBase::handleReceiveMessageContent(const boost::system::error_code& error, std::size_t bytes_transfered, WebSocketChannel* webSocketChannel)
+	WebSocketServerBase::handleReceiveMessageContent(
+	        const boost::system::error_code& error,
+	        std::size_t bytes_transfered,
+	        WebSocketChannel* webSocketChannel,
+	        WebSocketMessageContext::SPtr webSocketMessageContext)
 	{
 		webSocketChannel->asyncRead_ = false;
 
 		if (webSocketChannel->timeout_ || error || webSocketChannel->shutdown_) {
-			Log(Debug, "WebSocketServer handle receive message content timeout, error or shutdown");
+			Log(Error, "WebSocketServer handle receive message content timeout, error or shutdown");
 			closeWebSocketChannel(webSocketChannel);
 			return;
 		}
@@ -793,7 +803,7 @@ namespace OpcUaWebServer
 		webSocketConfig_->ioThread()->slotTimer()->stop(webSocketChannel->slotTimerElement_);
 
 		if (error) {
-			Log(Debug, "WebSocketServer receive message content error; close channel")
+			Log(Error, "WebSocketServer receive message content error; close channel")
 				.parameter("Address", webSocketChannel->partner_.address().to_string())
 				.parameter("Port", webSocketChannel->partner_.port())
 				.parameter("ChannelId", webSocketChannel->id_);
@@ -802,9 +812,45 @@ namespace OpcUaWebServer
 			return;
 		}
 
-		auto webSocketMessage = boost::make_shared<WebSocketMessage>();
-		webSocketMessage->channelId_ = webSocketChannel->id_;
-		webSocketMessage->message_ = "";
+		WebSocketMessage::SPtr webSocketMessage = nullptr;
+
+		auto frameType = webSocketMessageContext->getFrameType();
+		switch (frameType)
+		{
+            case WebSocketMessageContext::EnumFrameType::FrameType_SingleFrame:
+            {
+                webSocketMessage = boost::make_shared<WebSocketMessage>();
+                webSocketMessage->channelId_ = webSocketChannel->id_;
+                webSocketMessage->message_ = "";
+                break;
+            }
+            case WebSocketMessageContext::EnumFrameType::FrameType_FirstFrame:
+            {
+                webSocketMessage = boost::make_shared<WebSocketMessage>();
+                webSocketMessage->channelId_ = webSocketChannel->id_;
+                webSocketMessage->message_ = "";
+                webSocketMessageContext->setMessageFragment(webSocketMessage);
+                break;
+            }
+            case WebSocketMessageContext::EnumFrameType::FrameType_Frame:
+            case WebSocketMessageContext::EnumFrameType::FrameType_LastFrame:
+            {
+                webSocketMessage = webSocketMessageContext->getMessageFragments();
+                break;
+            }
+            default:
+                break;
+		}
+
+		if (webSocketMessage == nullptr) {
+            Log(Error, "WebSocketServer missing web socket message; close channel")
+                .parameter("Address", webSocketChannel->partner_.address().to_string())
+                .parameter("Port", webSocketChannel->partner_.port())
+                .parameter("ChannelId", webSocketChannel->id_);
+
+            closeWebSocketChannel(webSocketChannel);
+            return;
+		}
 
 		std::istream is(&webSocketChannel->recvBuffer_);
 
@@ -847,8 +893,13 @@ namespace OpcUaWebServer
 			return;
 		}
 
-		if (receiveMessageCallback_) receiveMessageCallback_(webSocketMessage);
-		receiveMessage(webSocketChannel);
+		if (frameType == WebSocketMessageContext::EnumFrameType::FrameType_LastFrame ||
+		        frameType == WebSocketMessageContext::EnumFrameType::FrameType_SingleFrame) {
+		    webSocketMessageContext->clear();
+		    if (receiveMessageCallback_) receiveMessageCallback_(webSocketMessage);
+		}
+
+		receiveMessage(webSocketChannel, webSocketMessageContext);
 	}
 
 	void
