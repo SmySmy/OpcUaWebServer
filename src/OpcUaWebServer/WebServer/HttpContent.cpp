@@ -16,9 +16,13 @@
 
  */
 
+#include <fstream>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include "OpcUaStackCore/Base/Log.h"
 #include "OpcUaWebServer/WebServer/HttpContent.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaWebServer
 {
@@ -98,13 +102,17 @@ namespace OpcUaWebServer
 
 		std::string file = httpConfig_->webDirectory() + path;
 
-		std::cout << "Method: " << httpRequest.method() << std::endl;
-		std::cout << "Path:   " << httpRequest.path() << std::endl;
-		std::cout << "File:   " << file << std::endl;
+		Log(Debug, "WebServer handle request")
+		    .parameter("Method",  httpRequest.method())
+		    .parameter("Path", httpRequest.path())
+		    .parameter("File", file);
 
 		// check if file exist
 		if (!boost::filesystem::exists(file)) {
-            std::cout << "404 filenot exists" << std::endl;
+		    Log(Error, "cannot find file (404)!")
+                .parameter("Method",  httpRequest.method())
+                .parameter("Path", httpRequest.path())
+                .parameter("File", file);
 			httpResponse.statusCode(404);
 			httpResponse.statusString("Not Found");
 			return;
@@ -112,12 +120,15 @@ namespace OpcUaWebServer
 
 		// read file
 		boost::filesystem::ifstream ifs;
-		ifs.open(file, std::ios::in);
+		ifs.open(file, std::ios::binary | std::ios::in);
 		if (!ifs) {
-            std::cout << "404 file cannot read" << std::endl;
-			httpResponse.statusCode(404);
-			httpResponse.statusString("Not Found");
-			return;
+            Log(Error, "cannot read file (404)!")
+                .parameter("Method",  httpRequest.method())
+                .parameter("Path", httpRequest.path())
+                .parameter("File", file);
+		    httpResponse.statusCode(404);
+		    httpResponse.statusString("Not Found");
+		    return;
 		}
 
 		std::stringstream ss;
@@ -126,5 +137,4 @@ namespace OpcUaWebServer
 		// set content
 		httpResponse.content(ss.str());
 	}
-
 }
