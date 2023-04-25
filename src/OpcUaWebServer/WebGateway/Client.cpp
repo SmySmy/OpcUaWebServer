@@ -278,20 +278,20 @@ namespace OpcUaWebServer
          * Es kann nichts mehr gesendet oder empfangen werden. Der Server scheint nicht
          * mehr zu laufen. Der Server muss nun neugestartet werden.
          */
-        return;
+        // return;
 
 		// check if the function is called outside the strand
-		if (!strand_->running_in_this_thread()) {
-			auto logoutContext = boost::make_shared<LogoutContext>();
-			logoutContext->requestBody_ = requestBody;
-			logoutContext->logoutResponseCallback_ = logoutResponseCallback;
-			strand_->dispatch(
-				[this, logoutContext]() {
-				    logout(logoutContext->requestBody_, logoutContext->logoutResponseCallback_);
-			    }
-			);
-			return;
-		}
+//		if (!strand_->running_in_this_thread()) {
+//			auto logoutContext = boost::make_shared<LogoutContext>();
+//			logoutContext->requestBody_ = requestBody;
+//			logoutContext->logoutResponseCallback_ = logoutResponseCallback;
+//			strand_->dispatch(
+//				[this, logoutContext]() {
+//				    logout(logoutContext->requestBody_, logoutContext->logoutResponseCallback_);
+//			    }
+//			);
+//			return;
+//		}
 
 		Log(Debug, "receive logout request")
 			.parameter("Id", id_);
