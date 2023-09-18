@@ -179,6 +179,11 @@ namespace OpcUaWebServer
 			return;
 		}
 
+		else if (messageType == "GW_Keepalive") {
+		    sendResponse(webSocketMessage->channelId_, requestHeader, *body);
+		    return;
+		}
+
 		else if (messageType == "GW_LoginRequest") {
 			handleLogin(webSocketMessage->channelId_, requestHeader, *body);
 			return;
